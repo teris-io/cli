@@ -1,37 +1,20 @@
 package cli
 
 import (
-	"github.com/silvertern/cli/option"
-	"strings"
 	"fmt"
-	"strconv"
+	"github.com/silvertern/cli/command"
+	"github.com/silvertern/cli/option"
 	"path"
+	"strconv"
+	"strings"
 )
-
-type Action func(args []string, options map[string]string) int
-
-type Arg struct {
-	Key string
-	Type option.Type
-	Optional bool
-}
-
-type Command struct {
-	Key string
-	Description string
-	Shortcut string
-	Args []Arg
-	Options []option.Option
-	Commands []*Command
-	Action Action
-}
 
 type App struct {
 	Description string
-	Args []Arg
-	Options []option.Option
-	Commands []*Command
-	Action Action
+	Args        []command.Arg
+	Options     []option.Option
+	Commands    []command.Command
+	Action      command.Action
 }
 
 func (a *App) Parse(appargs []string) (invocation []string, args []string, opts map[string]string, err error) {
@@ -48,12 +31,12 @@ func (a *App) Parse(appargs []string) (invocation []string, args []string, opts 
 	availableCmds := a.Commands
 	ARGS1: for _, apparg := range appargs {
 		for _, cmd := range availableCmds {
-			if cmd.Key == apparg || cmd.Shortcut == apparg {
-				invocation = append(invocation, cmd.Key)
-				permittedOpts = append(permittedOpts, cmd.Options...)
-				expectedArgs = cmd.Args
+			if cmd.Key() == apparg || cmd.Shortcut() == apparg {
+				invocation = append(invocation, cmd.Key())
+				permittedOpts = append(permittedOpts, cmd.Options()...)
+				expectedArgs = cmd.Args()
 				appargs = appargs[1:]
-				availableCmds = cmd.Commands
+				availableCmds = cmd.Commands()
 				continue ARGS1
 			}
 		}
@@ -83,12 +66,12 @@ func (a *App) Parse(appargs []string) (invocation []string, args []string, opts 
 			return invocation, args, opts, fmt.Errorf("unknown option --%s", apparg)
 		} else if strings.HasPrefix(apparg, "-") {
 			apparg = apparg[1:]
-			CHAR: for i, char := range apparg {
+		CHAR: for i, char := range apparg {
 				for _, permittedOpt := range permittedOpts {
 					if permittedOpt.CharKey() == char {
 						if permittedOpt.Type() == option.TypeBool {
 							opts[permittedOpt.Key()] = "true"
-						} else if i == len(apparg) - 1 {
+						} else if i == len(apparg)-1 {
 							expectingValueFor = permittedOpt.Key()
 						} else {
 							return invocation, args, opts, fmt.Errorf("non-boolean flag -%v in non-terminal position", char)
@@ -106,7 +89,7 @@ func (a *App) Parse(appargs []string) (invocation []string, args []string, opts 
 		return invocation, args, opts, fmt.Errorf("dangling option --%s", expectingValueFor)
 	}
 	for i, expectedArg := range expectedArgs {
-		if len(args) < i + 1 {
+		if len(args) < i+1 {
 			if expectedArg.Optional {
 				break
 			}

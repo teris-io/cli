@@ -1,56 +1,38 @@
 package cli_test
 
 import (
-	"testing"
-	"github.com/silvertern/cli"
-	"github.com/silvertern/cli/option"
 	"fmt"
+	"github.com/silvertern/cli"
+	"github.com/silvertern/cli/command"
+	"github.com/silvertern/cli/option"
 	"sort"
+	"testing"
 )
 
 func setup() *cli.App {
-	co := &cli.Command{
-		Key: "checkout",
-		Shortcut: "co",
-		Args: []cli.Arg{
-			{Key: "branch"},
-		},
-		Description: "checkout a branch or revision",
-		Options: []option.Option{
-			option.New("branch", "Create branch").WithChar('b').WithType(option.TypeBool),
-			option.New("upstream", "Set upstream").WithChar('u').WithType(option.TypeBool),
-			option.New("fallback", "Set upstream").WithChar('f'),
-			option.New("count", "Count").WithChar('c').WithType(option.TypeInt),
-			option.New("pi", "Set upstream").WithChar('p').WithType(option.TypeNumber),
-		},
-	}
+	co := command.New("checkout", "checkout a branch or revision").
+		WithShortcut("co").
+		WithArg(command.Arg{Key: "branch"}).
+		WithOption(option.New("branch", "Create branch").WithChar('b').WithType(option.TypeBool)).
+		WithOption(option.New("upstream", "Set upstream").WithChar('u').WithType(option.TypeBool)).
+		WithOption(option.New("fallback", "Set upstream").WithChar('f')).
+		WithOption(option.New("count", "Count").WithChar('c').WithType(option.TypeInt)).
+		WithOption(option.New("pi", "Set upstream").WithChar('p').WithType(option.TypeNumber))
 
-	add := &cli.Command{
-		Key: "add",
-		Args: []cli.Arg{
-			{Key: "remote"},
-			{Key: "count", Type: option.TypeInt},
-			{Key: "pi", Type: option.TypeNumber},
-			{Key: "force", Type: option.TypeBool},
-			{Key: "optional", Optional: true},
-		},
-		Description: "add a remote",
-		Options: []option.Option{
-			option.New("force", "Force").WithChar('f').WithType(option.TypeBool),
-			option.New("quiet", "Quiet").WithChar('q').WithType(option.TypeBool),
-			option.New("default", "Default"),
-		},
-	}
+	add := command.New("add", "add a remote").
+		WithArg(command.Arg{Key: "remote"}).
+		WithArg(command.Arg{Key: "count", Type: option.TypeInt}).
+		WithArg(command.Arg{Key: "pi", Type: option.TypeNumber}).
+		WithArg(command.Arg{Key: "force", Type: option.TypeBool}).
+		WithArg(command.Arg{Key: "optional", Optional: true}).
+		WithOption(option.New("force", "Force").WithChar('f').WithType(option.TypeBool)).
+		WithOption(option.New("quiet", "Quiet").WithChar('q').WithType(option.TypeBool)).
+		WithOption(option.New("default", "Default"))
 
-	rmt := &cli.Command{
-		Key: "remote",
-		Commands: []*cli.Command{
-			add,
-		},
-	}
+	rmt := command.New("remote", "operations with remotes").WithCommand(add)
 
 	return &cli.App{
-		Commands: []*cli.Command{
+		Commands: []command.Command{
 			co, rmt,
 		},
 	}
