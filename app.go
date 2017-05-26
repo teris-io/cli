@@ -29,7 +29,8 @@ func (a *App) Parse(appargs []string) (invocation []string, args []string, opts 
 	permittedOpts := a.Options
 	expectedArgs := a.Args
 	availableCmds := a.Commands
-	ARGS1: for _, apparg := range appargs {
+	for _, apparg := range appargs {
+		matched := false
 		for _, cmd := range availableCmds {
 			if cmd.Key() == apparg || cmd.Shortcut() == apparg {
 				invocation = append(invocation, cmd.Key())
@@ -37,14 +38,17 @@ func (a *App) Parse(appargs []string) (invocation []string, args []string, opts 
 				expectedArgs = cmd.Args()
 				appargs = appargs[1:]
 				availableCmds = cmd.Commands()
-				continue ARGS1
+				matched = true
+				break
 			}
 		}
-		break
+		if !matched {
+			break
+		}
 	}
 
 	var expectingValueFor string
-	ARGS2: for _, apparg := range appargs {
+	for _, apparg := range appargs {
 		if expectingValueFor != "" {
 			opts[expectingValueFor] = apparg
 			expectingValueFor = ""
@@ -54,6 +58,7 @@ func (a *App) Parse(appargs []string) (invocation []string, args []string, opts 
 				return invocation, nil, map[string]string{"help": "true"}, nil
 			}
 			parts := strings.Split(apparg, "=")
+			matched := false
 			for _, permittedOpt := range permittedOpts {
 				if permittedOpt.Key() == parts[0] {
 					if permittedOpt.Type() == option.TypeBool {
@@ -63,17 +68,21 @@ func (a *App) Parse(appargs []string) (invocation []string, args []string, opts 
 					} else {
 						opts[permittedOpt.Key()] = parts[1]
 					}
-					continue ARGS2
+					matched = true
+					break
 				}
 			}
-			return invocation, args, opts, fmt.Errorf("unknown option --%s", parts[0])
+			if ! matched {
+				return invocation, args, opts, fmt.Errorf("unknown option --%s", parts[0])
+			}
 		} else if strings.HasPrefix(apparg, "-") {
 			apparg = apparg[1:]
 
-			CHAR: for i, char := range apparg {
+			for i, char := range apparg {
 				if string(char) == "h" {
 					return invocation, nil, map[string]string{"help": "true"}, nil
 				}
+				matched := false
 				for _, permittedOpt := range permittedOpts {
 					if permittedOpt.CharKey() == char {
 						if permittedOpt.Type() == option.TypeBool {
@@ -83,10 +92,13 @@ func (a *App) Parse(appargs []string) (invocation []string, args []string, opts 
 						} else {
 							return invocation, args, opts, fmt.Errorf("non-boolean flag -%v in non-terminal position", string(char))
 						}
-						continue CHAR
+						matched = true
+						break
 					}
 				}
-				return invocation, args, opts, fmt.Errorf("unknown flag -%v", string(char))
+				if !matched {
+					return invocation, args, opts, fmt.Errorf("unknown flag -%v", string(char))
+				}
 			}
 		} else {
 			args = append(args, apparg)
@@ -132,7 +144,7 @@ func (a *App) Parse(appargs []string) (invocation []string, args []string, opts 
 		}
 	}
 
-	OPTS: for key, value := range opts {
+	for key, value := range opts {
 		for _, permittedOpt := range permittedOpts {
 			if permittedOpt.Key() == key {
 				switch permittedOpt.Type() {
@@ -146,7 +158,7 @@ func (a *App) Parse(appargs []string) (invocation []string, args []string, opts 
 					}
 				default:
 				}
-				continue OPTS
+				break
 			}
 		}
 	}
