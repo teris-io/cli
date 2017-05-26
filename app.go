@@ -50,6 +50,9 @@ func (a *App) Parse(appargs []string) (invocation []string, args []string, opts 
 			expectingValueFor = ""
 		} else if strings.HasPrefix(apparg, "--") {
 			apparg = apparg[2:]
+			if apparg == "help" {
+				return invocation, nil, map[string]string{"help": "true"}, nil
+			}
 			parts := strings.Split(apparg, "=")
 			for _, permittedOpt := range permittedOpts {
 				if permittedOpt.Key() == parts[0] {
@@ -63,10 +66,14 @@ func (a *App) Parse(appargs []string) (invocation []string, args []string, opts 
 					continue ARGS2
 				}
 			}
-			return invocation, args, opts, fmt.Errorf("unknown option --%s", apparg)
+			return invocation, args, opts, fmt.Errorf("unknown option --%s", parts[0])
 		} else if strings.HasPrefix(apparg, "-") {
 			apparg = apparg[1:]
-		CHAR: for i, char := range apparg {
+
+			CHAR: for i, char := range apparg {
+				if string(char) == "h" {
+					return invocation, nil, map[string]string{"help": "true"}, nil
+				}
 				for _, permittedOpt := range permittedOpts {
 					if permittedOpt.CharKey() == char {
 						if permittedOpt.Type() == option.TypeBool {
@@ -74,12 +81,12 @@ func (a *App) Parse(appargs []string) (invocation []string, args []string, opts 
 						} else if i == len(apparg)-1 {
 							expectingValueFor = permittedOpt.Key()
 						} else {
-							return invocation, args, opts, fmt.Errorf("non-boolean flag -%v in non-terminal position", char)
+							return invocation, args, opts, fmt.Errorf("non-boolean flag -%v in non-terminal position", string(char))
 						}
 						continue CHAR
 					}
 				}
-				return invocation, args, opts, fmt.Errorf("unknown flag -%v", char)
+				return invocation, args, opts, fmt.Errorf("unknown flag -%v", string(char))
 			}
 		} else {
 			args = append(args, apparg)
@@ -87,6 +94,18 @@ func (a *App) Parse(appargs []string) (invocation []string, args []string, opts 
 	}
 	if expectingValueFor != "" {
 		return invocation, args, opts, fmt.Errorf("dangling option --%s", expectingValueFor)
+	}
+
+	lastArgOptional := false
+	if len(expectedArgs) > 0 && expectedArgs[len(expectedArgs) - 1].Optional {
+		lastArgOptional = true
+	}
+	if !lastArgOptional {
+		if len(expectedArgs) > len(args) {
+			return invocation, args, opts, fmt.Errorf("missing required argument %v", expectedArgs[len(args)].Key)
+		}	else if len(expectedArgs) < len(args) {
+			return invocation, args, opts, fmt.Errorf("unknown arguments %v", args[len(expectedArgs):])
+		}
 	}
 	for i, expectedArg := range expectedArgs {
 		if len(args) < i+1 {
@@ -117,17 +136,13 @@ func (a *App) Parse(appargs []string) (invocation []string, args []string, opts 
 		for _, permittedOpt := range permittedOpts {
 			if permittedOpt.Key() == key {
 				switch permittedOpt.Type() {
-				case option.TypeBool:
-					if _, err := strconv.ParseBool(value); err != nil {
-						return invocation, args, opts, fmt.Errorf("option --%s must be given a boolean value, found %v", permittedOpt.Key(), value)
-					}
 				case option.TypeInt:
 					if _, err := strconv.ParseInt(value, 10, 64); err != nil {
 						return invocation, args, opts, fmt.Errorf("option --%s must be given an integer value, found %v", permittedOpt.Key(), value)
 					}
 				case option.TypeNumber:
 					if _, err := strconv.ParseFloat(value, 64); err != nil {
-						return invocation, args, opts, fmt.Errorf("option --%s must must be given a number, found %v", permittedOpt.Key())
+						return invocation, args, opts, fmt.Errorf("option --%s must must be given a number, found %v", permittedOpt.Key(), value)
 					}
 				default:
 				}

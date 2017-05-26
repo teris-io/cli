@@ -17,14 +17,15 @@ func setup() *cli.App {
 		WithOption(option.New("upstream", "Set upstream").WithChar('u').WithType(option.TypeBool)).
 		WithOption(option.New("fallback", "Set upstream").WithChar('f')).
 		WithOption(option.New("count", "Count").WithChar('c').WithType(option.TypeInt)).
-		WithOption(option.New("pi", "Set upstream").WithChar('p').WithType(option.TypeNumber))
+		WithOption(option.New("pi", "Set upstream").WithChar('p').WithType(option.TypeNumber)).
+		WithOption(option.New("str", "Count").WithChar('s'))
 
 	add := command.New("add", "add a remote").
 		WithArg(command.Arg{Key: "remote"}).
 		WithArg(command.Arg{Key: "count", Type: option.TypeInt}).
 		WithArg(command.Arg{Key: "pi", Type: option.TypeNumber}).
 		WithArg(command.Arg{Key: "force", Type: option.TypeBool}).
-		WithArg(command.Arg{Key: "optional", Optional: true}).
+		WithArg(command.Arg{Key: "optional", Optional: true, Type: option.TypeBool}).
 		WithOption(option.New("force", "Force").WithChar('f').WithType(option.TypeBool)).
 		WithOption(option.New("quiet", "Quiet").WithChar('q').WithType(option.TypeBool)).
 		WithOption(option.New("default", "Default"))
@@ -32,6 +33,9 @@ func setup() *cli.App {
 	rmt := command.New("remote", "operations with remotes").WithCommand(add)
 
 	return &cli.App{
+		Args: []command.Arg{
+			command.Arg{Key: "arg1"},
+		},
 		Commands: []command.Command{
 			co, rmt,
 		},
@@ -104,13 +108,103 @@ func TestApp_Parse_OptionalMissing_Ok(t *testing.T) {
 }
 
 func TestApp_Parse_OptionalPresent_Ok(t *testing.T) {
-	invocation, args, opts, err := setup().Parse([]string{"git", "remote", "add", "origin", "1", "3.14", "true", "stuff"})
-	assertAppParseOk(t, "[git remote add] [origin 1 3.14 true stuff] map[]", invocation, args, opts, err)
+	invocation, args, opts, err := setup().Parse([]string{"git", "remote", "add", "origin", "1", "3.14", "true", "true"})
+	assertAppParseOk(t, "[git remote add] [origin 1 3.14 true true] map[]", invocation, args, opts, err)
 }
 
 func TestApp_Parse_KeysAnywhereBetweenArgs_Ok(t *testing.T) {
 	invocation, args, opts, err := setup().Parse([]string{"git", "remote", "add", "-f", "origin", "--default=foo", "1", "3.14", "true", "-q"})
 	assertAppParseOk(t, "[git remote add] [origin 1 3.14 true] map[default:foo force:true quiet:true]", invocation, args, opts, err)
+}
+
+func TestApp_Parse_UnrecognizedCommand_ErrorUnknownFlagForRoot(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "foo", "-f", "origin"})
+	assertAppParseError(t, "[git] [foo] map[]", "unknown flag -f", invocation, args, opts, err)
+}
+
+func TestApp_Parse_UnrecognizedCommand_ErrorUnknownArgument(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "foo", "origin"})
+	assertAppParseError(t, "[git] [foo origin] map[]", "unknown arguments [origin]", invocation, args, opts, err)
+}
+
+func TestApp_Parse_BaseApp_ErrorMissingArgument(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git"})
+	assertAppParseError(t, "[git] [] map[]", "missing required argument arg1", invocation, args, opts, err)
+}
+
+func TestApp_Parse_DanglingOptions_Error(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "checkout", "dev", "-p"})
+	assertAppParseError(t, "[git checkout] [dev] map[]", "dangling option --pi", invocation, args, opts, err)
+}
+
+func TestApp_Parse_LastArgOptionalRequiredMissing_Error(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "remote", "add", "origin", "1"})
+	assertAppParseError(t, "[git remote add] [origin 1] map[]", "missing required argument pi", invocation, args, opts, err)
+}
+
+func TestApp_Parse_IncorrectBoolArgType_Error(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "remote", "add", "origin", "1", "3.14", "foo"})
+	assertAppParseError(t, "[git remote add] [origin 1 3.14 foo] map[]", "argument force must be a boolean value, found foo", invocation, args, opts, err)
+}
+
+func TestApp_Parse_IncorrectIntArgType_Error(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "remote", "add", "origin", "3.14", "3.14", "true"})
+	assertAppParseError(t, "[git remote add] [origin 3.14 3.14 true] map[]", "argument count must be an integer value, found 3.14", invocation, args, opts, err)
+}
+
+func TestApp_Parse_IncorrectNumberArgType_Error(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "remote", "add", "origin", "1", "aaa", "true"})
+	assertAppParseError(t, "[git remote add] [origin 1 aaa true] map[]", "argument pi must be a number, found aaa", invocation, args, opts, err)
+}
+
+func TestApp_Parse_IncorrectOptionalArgType_Error(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "remote", "add", "origin", "1", "3.14", "true", "25"})
+	assertAppParseError(t, "[git remote add] [origin 1 3.14 true 25] map[]", "argument optional must be a boolean value, found 25", invocation, args, opts, err)
+}
+
+func TestApp_Parse_NonBooleanFlagInNonTerminalPosition_Error(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "checkout", "-bpu", "3.14", "dev"})
+	assertAppParseError(t, "[git checkout] [] map[branch:true]", "non-boolean flag -p in non-terminal position", invocation, args, opts, err)
+}
+
+func TestApp_Parse_MissingValueForOption_Error(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "checkout", "--pi", "dev"})
+	assertAppParseError(t, "[git checkout] [] map[]", "missing value for option --pi", invocation, args, opts, err)
+}
+
+func TestApp_Parse_NoValueAfterTheEqualSignForStringOption_Ok(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "checkout", "--str=", "dev"})
+	assertAppParseOk(t, "[git checkout] [dev] map[str:]", invocation, args, opts, err)
+}
+
+func TestApp_Parse_UnknownOption_Error(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "checkout", "--foo=25", "dev"})
+	assertAppParseError(t, "[git checkout] [] map[]", "unknown option --foo", invocation, args, opts, err)
+}
+
+func TestApp_Parse_IncorrectDataForIntOption_Error(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "checkout", "-c", "2.25", "dev"})
+	assertAppParseError(t, "[git checkout] [dev] map[count:2.25]", "option --count must be given an integer value, found 2.25", invocation, args, opts, err)
+}
+
+func TestApp_Parse_IncorrectDataForNumberOption_Error(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "checkout", "-p", "aaa", "dev"})
+	assertAppParseError(t, "[git checkout] [dev] map[pi:aaa]", "option --pi must must be given a number, found aaa", invocation, args, opts, err)
+}
+
+func TestApp_Parse_LastArgOptionalPermitsUnlimitedExtraArgs_Error(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "remote", "add", "origin", "1", "3.14", "true", "true", "exra1", "extra2"})
+	assertAppParseOk(t, "[git remote add] [origin 1 3.14 true true exra1 extra2] map[]", invocation, args, opts, err)
+}
+
+func TestApp_Parse_HelpOptionComesOutWithoutArgOrFlagValidation_Ok(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "checkout", "-c", "3.15", "dev", "arg2", "arg3", "--help"})
+	assertAppParseOk(t, "[git checkout] [] map[help:true]", invocation, args, opts, err)
+}
+
+func TestApp_Parse_HelpFlagInMultichar_Ok(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "checkout", "-bhc", "3.15", "dev"})
+	assertAppParseOk(t, "[git checkout] [] map[help:true]", invocation, args, opts, err)
 }
 
 func assertAppParseOk(t *testing.T, expected string, invocation []string, args []string, opts map[string]string, err error) {
@@ -129,5 +223,25 @@ func assertAppParseOk(t *testing.T, expected string, invocation []string, args [
 		}
 	} else {
 		t.Errorf("no error expected, found '%v'; data %v %v %v", err, invocation, args, opts)
+	}
+}
+
+func assertAppParseError(t *testing.T, expectedData, expectedError string, invocation []string, args []string, opts map[string]string, err error) {
+	optkeys := []string{}
+	for key, _ := range opts {
+		optkeys = append(optkeys, key)
+	}
+	sort.Strings(optkeys)
+	for i, key := range optkeys {
+		optkeys[i] = fmt.Sprintf("%s:%s", key, opts[key])
+	}
+	actual := fmt.Sprintf("%v %v map%v", invocation, args, optkeys)
+	if actual != expectedData {
+		t.Errorf("assertion error: expectedData '%v', found '%v'", expectedData, actual)
+	}
+	if err == nil {
+		t.Error("an error was expected")
+	} else if expectedError != err.Error() {
+		t.Errorf("error mismatch, expected: '%v', found '%v'", expectedError, err.Error())
 	}
 }
