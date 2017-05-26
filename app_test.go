@@ -42,6 +42,16 @@ func setup() *cli.App {
 	}
 }
 
+func TestApp_Parse_DropsPathFromAppName_Ok(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"~/some/path/git", "checkout", "dev"})
+	assertAppParseOk(t, "[git checkout] [dev] map[]", invocation, args, opts, err)
+}
+
+func TestApp_Parse_DropsDotPathFromAppName_Ok(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"./git", "checkout", "dev"})
+	assertAppParseOk(t, "[git checkout] [dev] map[]", invocation, args, opts, err)
+}
+
 func TestApp_Parse_NoFlags_Ok(t *testing.T) {
 	invocation, args, opts, err := setup().Parse([]string{"git", "checkout", "dev"})
 	assertAppParseOk(t, "[git checkout] [dev] map[]", invocation, args, opts, err)
@@ -115,6 +125,17 @@ func TestApp_Parse_OptionalPresent_Ok(t *testing.T) {
 func TestApp_Parse_KeysAnywhereBetweenArgs_Ok(t *testing.T) {
 	invocation, args, opts, err := setup().Parse([]string{"git", "remote", "add", "-f", "origin", "--default=foo", "1", "3.14", "true", "-q"})
 	assertAppParseOk(t, "[git remote add] [origin 1 3.14 true] map[default:foo force:true quiet:true]", invocation, args, opts, err)
+}
+
+func TestApp_Parse_ExplicitValueForBoolOption_Error(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "remote", "add", "--force=true", "origin", "1", "3.14", "true"})
+	assertAppParseError(t, "[git remote add] [] map[]",
+		"boolean options have true assigned implicitly, found value for --force", invocation, args, opts, err)
+}
+
+func TestApp_Parse_EqSignInStringOptionValue_Ok(t *testing.T) {
+	invocation, args, opts, err := setup().Parse([]string{"git", "remote", "add", "--default=foo=boo=blah", "origin", "1", "3.14", "true"})
+	assertAppParseOk(t, "[git remote add] [origin 1 3.14 true] map[default:foo=boo=blah]", invocation, args, opts, err)
 }
 
 func TestApp_Parse_UnrecognizedCommand_ErrorUnknownFlagForRoot(t *testing.T) {

@@ -9,6 +9,12 @@ import (
 	"strings"
 )
 
+const (
+	helpKey = "help"
+	helpChar = 'h'
+	trueStr = "true"
+)
+
 type App struct {
 	Description string
 	Args        []command.Arg
@@ -18,26 +24,38 @@ type App struct {
 }
 
 func (a *App) Parse(appargs []string) (invocation []string, args []string, opts map[string]string, err error) {
-	opts = make(map[string]string)
-	args = []string{}
-
 	_, appname := path.Split(appargs[0])
-	invocation = []string{appname}
 
-	appargs = appargs[1:]
+	invocation, argsAndOpts, expArgs, accptOpts := evalCommand(a, appargs[1:])
+	invocation = append([]string{appname}, invocation...)
 
-	permittedOpts := a.Options
-	expectedArgs := a.Args
-	availableCmds := a.Commands
-	for _, apparg := range appargs {
+	if args, opts, err = splitArgsAndOpts(argsAndOpts, accptOpts); err == nil {
+		if _, ok := opts["help"]; !ok {
+			if err = assertArgs(expArgs, args); err == nil {
+				err = assertOpts(accptOpts, opts)
+			}
+		}
+	}
+	return invocation, args, opts, err
+}
+
+func evalCommand(a *App, appargs []string) (invocation []string, argsAndOpts []string, expArgs []command.Arg, accptOpts []option.Option) {
+	invocation = []string{}
+	argsAndOpts = appargs
+	expArgs = a.Args
+	accptOpts = a.Options
+
+	cmds2check := a.Commands
+	for i, arg := range appargs {
 		matched := false
-		for _, cmd := range availableCmds {
-			if cmd.Key() == apparg || cmd.Shortcut() == apparg {
+		for _, cmd := range cmds2check {
+			if cmd.Key() == arg || cmd.Shortcut() == arg {
 				invocation = append(invocation, cmd.Key())
-				permittedOpts = append(permittedOpts, cmd.Options()...)
-				expectedArgs = cmd.Args()
-				appargs = appargs[1:]
-				availableCmds = cmd.Commands()
+				argsAndOpts = appargs[i+1:]
+				expArgs = cmd.Args()
+				accptOpts = append(accptOpts, cmd.Options()...)
+
+				cmds2check = cmd.Commands()
 				matched = true
 				break
 			}
@@ -46,122 +64,139 @@ func (a *App) Parse(appargs []string) (invocation []string, args []string, opts 
 			break
 		}
 	}
+	return invocation, argsAndOpts, expArgs, accptOpts
+}
 
-	var expectingValueFor string
-	for _, apparg := range appargs {
-		if expectingValueFor != "" {
-			opts[expectingValueFor] = apparg
-			expectingValueFor = ""
-		} else if strings.HasPrefix(apparg, "--") {
-			apparg = apparg[2:]
-			if apparg == "help" {
-				return invocation, nil, map[string]string{"help": "true"}, nil
+
+func splitArgsAndOpts(appargs []string, accptOpts []option.Option) (args []string, opts map[string]string, err error) {
+	opts = make(map[string]string)
+
+	danglingOpt := ""
+	for _, arg := range appargs {
+		if danglingOpt != "" {
+			opts[danglingOpt] = arg
+			danglingOpt = ""
+			continue
+		}
+
+		if strings.HasPrefix(arg, "--") {
+			arg = arg[2:]
+			if arg == helpKey {
+				return nil, map[string]string{helpKey: trueStr}, nil
 			}
-			parts := strings.Split(apparg, "=")
+			parts := strings.Split(arg, "=")
+			key := parts[0]
 			matched := false
-			for _, permittedOpt := range permittedOpts {
-				if permittedOpt.Key() == parts[0] {
-					if permittedOpt.Type() == option.TypeBool {
-						opts[permittedOpt.Key()] = "true"
-					} else if len(parts) != 2 {
-						return invocation, args, opts, fmt.Errorf("missing value for option --%s", permittedOpt.Key())
+			for _, accptOpt := range accptOpts {
+				if accptOpt.Key() == key {
+					if accptOpt.Type() == option.TypeBool {
+						if len(parts) == 1 {
+							opts[accptOpt.Key()] = trueStr
+						} else {
+							return args, opts, fmt.Errorf("boolean options have true assigned implicitly, found value for --%s", key)
+						}
+					} else if len(parts) >= 2 {
+						opts[accptOpt.Key()] = strings.Join(parts[1:], "=") // permit = in values
 					} else {
-						opts[permittedOpt.Key()] = parts[1]
+						return args, opts, fmt.Errorf("missing value for option --%s", key)
 					}
 					matched = true
 					break
 				}
 			}
 			if ! matched {
-				return invocation, args, opts, fmt.Errorf("unknown option --%s", parts[0])
+				return args, opts, fmt.Errorf("unknown option --%s", key)
 			}
-		} else if strings.HasPrefix(apparg, "-") {
-			apparg = apparg[1:]
+			continue
+		}
 
-			for i, char := range apparg {
-				if string(char) == "h" {
-					return invocation, nil, map[string]string{"help": "true"}, nil
+		if strings.HasPrefix(arg, "-") {
+			arg = arg[1:]
+
+			for i, char := range arg {
+				if char == helpChar {
+					return nil, map[string]string{helpKey: trueStr}, nil
 				}
 				matched := false
-				for _, permittedOpt := range permittedOpts {
-					if permittedOpt.CharKey() == char {
-						if permittedOpt.Type() == option.TypeBool {
-							opts[permittedOpt.Key()] = "true"
-						} else if i == len(apparg)-1 {
-							expectingValueFor = permittedOpt.Key()
+				for _, accptOpt := range accptOpts {
+					if accptOpt.CharKey() == char {
+						if accptOpt.Type() == option.TypeBool {
+							opts[accptOpt.Key()] = trueStr
+						} else if i == len(arg)-1 {
+							danglingOpt = accptOpt.Key()
 						} else {
-							return invocation, args, opts, fmt.Errorf("non-boolean flag -%v in non-terminal position", string(char))
+							return args, opts, fmt.Errorf("non-boolean flag -%v in non-terminal position", string(char))
 						}
 						matched = true
 						break
 					}
 				}
 				if !matched {
-					return invocation, args, opts, fmt.Errorf("unknown flag -%v", string(char))
+					return args, opts, fmt.Errorf("unknown flag -%v", string(char))
 				}
 			}
-		} else {
-			args = append(args, apparg)
+			continue
 		}
-	}
-	if expectingValueFor != "" {
-		return invocation, args, opts, fmt.Errorf("dangling option --%s", expectingValueFor)
-	}
 
-	lastArgOptional := false
-	if len(expectedArgs) > 0 && expectedArgs[len(expectedArgs) - 1].Optional {
-		lastArgOptional = true
+		args = append(args, arg)
 	}
-	if !lastArgOptional {
-		if len(expectedArgs) > len(args) {
-			return invocation, args, opts, fmt.Errorf("missing required argument %v", expectedArgs[len(args)].Key)
-		}	else if len(expectedArgs) < len(args) {
-			return invocation, args, opts, fmt.Errorf("unknown arguments %v", args[len(expectedArgs):])
+	if danglingOpt != "" {
+		return args, opts, fmt.Errorf("dangling option --%s", danglingOpt)
+	}
+	return args, opts, nil
+}
+
+func assertArgs(expected []command.Arg, actual []string) error {
+	if len(expected) == 0 || !expected[len(expected) - 1].Optional {
+		if len(expected) > len(actual) {
+			return fmt.Errorf("missing required argument %v", expected[len(actual)].Key)
+		}	else if len(expected) < len(actual) {
+			return fmt.Errorf("unknown arguments %v", actual[len(expected):])
 		}
 	}
-	for i, expectedArg := range expectedArgs {
-		if len(args) < i+1 {
-			if expectedArg.Optional {
-				break
+	for i, e := range expected {
+		if len(actual) < i+1 {
+			if !e.Optional {
+				return fmt.Errorf("missing required argument %s", e.Key)
 			}
-			return invocation, args, opts, fmt.Errorf("missing required argument %s", expectedArg.Key)
+			break
 		}
-		arg := args[i]
-		switch expectedArg.Type {
+		arg := actual[i]
+		switch e.Type {
 		case option.TypeBool:
 			if _, err := strconv.ParseBool(arg); err != nil {
-				return invocation, args, opts, fmt.Errorf("argument %s must be a boolean value, found %v", expectedArg.Key, arg)
+				return fmt.Errorf("argument %s must be a boolean value, found %v", e.Key, arg)
 			}
 		case option.TypeInt:
 			if _, err := strconv.ParseInt(arg, 10, 64); err != nil {
-				return invocation, args, opts, fmt.Errorf("argument %s must be an integer value, found %v", expectedArg.Key, arg)
+				return fmt.Errorf("argument %s must be an integer value, found %v", e.Key, arg)
 			}
 		case option.TypeNumber:
 			if _, err := strconv.ParseFloat(arg, 64); err != nil {
-				return invocation, args, opts, fmt.Errorf("argument %s must be a number, found %v", expectedArg.Key, arg)
+				return fmt.Errorf("argument %s must be a number, found %v", e.Key, arg)
 			}
-		default:
 		}
 	}
+	return nil
+}
 
-	for key, value := range opts {
-		for _, permittedOpt := range permittedOpts {
-			if permittedOpt.Key() == key {
-				switch permittedOpt.Type() {
+func assertOpts(permitted []option.Option, actual map[string]string) error {
+	for key, value := range actual {
+		for _, p := range permitted {
+			if p.Key() == key {
+				switch p.Type() {
 				case option.TypeInt:
 					if _, err := strconv.ParseInt(value, 10, 64); err != nil {
-						return invocation, args, opts, fmt.Errorf("option --%s must be given an integer value, found %v", permittedOpt.Key(), value)
+						return fmt.Errorf("option --%s must be given an integer value, found %v", p.Key(), value)
 					}
 				case option.TypeNumber:
 					if _, err := strconv.ParseFloat(value, 64); err != nil {
-						return invocation, args, opts, fmt.Errorf("option --%s must must be given a number, found %v", permittedOpt.Key(), value)
+						return fmt.Errorf("option --%s must must be given a number, found %v", p.Key(), value)
 					}
-				default:
 				}
 				break
 			}
 		}
 	}
-
-	return invocation, args, opts, nil
+	return nil
 }
