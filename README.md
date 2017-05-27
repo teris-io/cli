@@ -30,8 +30,8 @@ one block.
 [build]: https://travis-ci.org/silvertern/cli
 [buildimage]: https://travis-ci.org/silvertern/cli.svg?branch=master
 
-[codecov]: https://codecov.io/github.com/silvertern/cli?branch=master
-[codecovimage]: https://codecov.io/github.com/silvertern/cli/coverage.svg?branch=master
+[codecov]: https://codecov.io/gh/silvertern/cli
+[codecovimage]: https://codecov.io/gh/silvertern/cli/branch/master/graph/badge.svg
 
 [card]: https://goreportcard.com/report/github.com/silvertern/cli
 [cardimage]: https://goreportcard.com/badge/github.com/silvertern/cli
