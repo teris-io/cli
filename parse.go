@@ -2,8 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"github.com/silvertern/cli/command"
-	"github.com/silvertern/cli/option"
 	"path"
 	"strconv"
 	"strings"
@@ -15,6 +13,13 @@ const (
 	trueStr  = "true"
 )
 
+// Parse parses the original application arguments into the command invocation path (application ->
+// first level command -> second level command etc.), a list of validated positional arguments matching
+// the command being invoked (the last one in the invocation path) and a map of validated options
+// matching one of the invocation path elements, from the top application down to the command being invoked.
+// An error is returned if a command is not found or arguments or options are invalid. In case of an error,
+// the invocation path is normally also computed and returned (the content of arguments and options is not
+// guaranteed). See `App.parse`
 func Parse(a App, appargs []string) (invocation []string, args []string, opts map[string]string, err error) {
 	_, appname := path.Split(appargs[0])
 
@@ -31,7 +36,7 @@ func Parse(a App, appargs []string) (invocation []string, args []string, opts ma
 	return invocation, args, opts, err
 }
 
-func evalCommand(a App, appargs []string) (invocation []string, argsAndOpts []string, expArgs []command.Arg, accptOpts []option.Option) {
+func evalCommand(a App, appargs []string) (invocation []string, argsAndOpts []string, expArgs []Arg, accptOpts []Option) {
 	invocation = []string{}
 	argsAndOpts = appargs
 	expArgs = a.Args()
@@ -59,7 +64,7 @@ func evalCommand(a App, appargs []string) (invocation []string, argsAndOpts []st
 	return invocation, argsAndOpts, expArgs, accptOpts
 }
 
-func splitArgsAndOpts(appargs []string, accptOpts []option.Option) (args []string, opts map[string]string, err error) {
+func splitArgsAndOpts(appargs []string, accptOpts []Option) (args []string, opts map[string]string, err error) {
 	opts = make(map[string]string)
 
 	danglingOpt := ""
@@ -80,7 +85,7 @@ func splitArgsAndOpts(appargs []string, accptOpts []option.Option) (args []strin
 			matched := false
 			for _, accptOpt := range accptOpts {
 				if accptOpt.Key() == key {
-					if accptOpt.Type() == option.TypeBool {
+					if accptOpt.Type() == TypeBool {
 						if len(parts) == 1 {
 							opts[accptOpt.Key()] = trueStr
 						} else {
@@ -111,7 +116,7 @@ func splitArgsAndOpts(appargs []string, accptOpts []option.Option) (args []strin
 				matched := false
 				for _, accptOpt := range accptOpts {
 					if accptOpt.CharKey() == char {
-						if accptOpt.Type() == option.TypeBool {
+						if accptOpt.Type() == TypeBool {
 							opts[accptOpt.Key()] = trueStr
 						} else if i == len(arg)-1 {
 							danglingOpt = accptOpt.Key()
@@ -137,50 +142,50 @@ func splitArgsAndOpts(appargs []string, accptOpts []option.Option) (args []strin
 	return args, opts, nil
 }
 
-func assertArgs(expected []command.Arg, actual []string) error {
-	if len(expected) == 0 || !expected[len(expected)-1].Optional {
+func assertArgs(expected []Arg, actual []string) error {
+	if len(expected) == 0 || !expected[len(expected)-1].Optional() {
 		if len(expected) > len(actual) {
-			return fmt.Errorf("missing required argument %v", expected[len(actual)].Key)
+			return fmt.Errorf("missing required argument %v", expected[len(actual)].Key())
 		} else if len(expected) < len(actual) {
 			return fmt.Errorf("unknown arguments %v", actual[len(expected):])
 		}
 	}
 	for i, e := range expected {
 		if len(actual) < i+1 {
-			if !e.Optional {
-				return fmt.Errorf("missing required argument %s", e.Key)
+			if !e.Optional() {
+				return fmt.Errorf("missing required argument %s", e.Key())
 			}
 			break
 		}
 		arg := actual[i]
-		switch e.Type {
-		case option.TypeBool:
+		switch e.Type() {
+		case TypeBool:
 			if _, err := strconv.ParseBool(arg); err != nil {
-				return fmt.Errorf("argument %s must be a boolean value, found %v", e.Key, arg)
+				return fmt.Errorf("argument %s must be a boolean value, found %v", e.Key(), arg)
 			}
-		case option.TypeInt:
+		case TypeInt:
 			if _, err := strconv.ParseInt(arg, 10, 64); err != nil {
-				return fmt.Errorf("argument %s must be an integer value, found %v", e.Key, arg)
+				return fmt.Errorf("argument %s must be an integer value, found %v", e.Key(), arg)
 			}
-		case option.TypeNumber:
+		case TypeNumber:
 			if _, err := strconv.ParseFloat(arg, 64); err != nil {
-				return fmt.Errorf("argument %s must be a number, found %v", e.Key, arg)
+				return fmt.Errorf("argument %s must be a number, found %v", e.Key(), arg)
 			}
 		}
 	}
 	return nil
 }
 
-func assertOpts(permitted []option.Option, actual map[string]string) error {
+func assertOpts(permitted []Option, actual map[string]string) error {
 	for key, value := range actual {
 		for _, p := range permitted {
 			if p.Key() == key {
 				switch p.Type() {
-				case option.TypeInt:
+				case TypeInt:
 					if _, err := strconv.ParseInt(value, 10, 64); err != nil {
 						return fmt.Errorf("option --%s must be given an integer value, found %v", p.Key(), value)
 					}
-				case option.TypeNumber:
+				case TypeNumber:
 					if _, err := strconv.ParseFloat(value, 64); err != nil {
 						return fmt.Errorf("option --%s must must be given a number, found %v", p.Key(), value)
 					}

@@ -3,37 +3,35 @@ package cli_test
 import (
 	"fmt"
 	"github.com/silvertern/cli"
-	"github.com/silvertern/cli/command"
-	"github.com/silvertern/cli/option"
 	"sort"
 	"testing"
 )
 
 func setup_parse_app() cli.App {
-	co := command.New("checkout", "checkout a branch or revision").
+	co := cli.NewCommand("checkout", "checkout a branch or revision").
 		WithShortcut("co").
-		WithArg(command.Arg{Key: "branch"}).
-		WithOption(option.New("branch", "Create branch").WithChar('b').WithType(option.TypeBool)).
-		WithOption(option.New("upstream", "Set upstream").WithChar('u').WithType(option.TypeBool)).
-		WithOption(option.New("fallback", "Set upstream").WithChar('f')).
-		WithOption(option.New("count", "Count").WithChar('c').WithType(option.TypeInt)).
-		WithOption(option.New("pi", "Set upstream").WithChar('p').WithType(option.TypeNumber)).
-		WithOption(option.New("str", "Count").WithChar('s'))
+		WithArg(cli.NewArg("branch")).
+		WithOption(cli.NewOption("branch", "Create branch").WithChar('b').WithType(cli.TypeBool)).
+		WithOption(cli.NewOption("upstream", "Set upstream").WithChar('u').WithType(cli.TypeBool)).
+		WithOption(cli.NewOption("fallback", "Set upstream").WithChar('f')).
+		WithOption(cli.NewOption("count", "Count").WithChar('c').WithType(cli.TypeInt)).
+		WithOption(cli.NewOption("pi", "Set upstream").WithChar('p').WithType(cli.TypeNumber)).
+		WithOption(cli.NewOption("str", "Count").WithChar('s'))
 
-	add := command.New("add", "add a remote").
-		WithArg(command.Arg{Key: "remote"}).
-		WithArg(command.Arg{Key: "count", Type: option.TypeInt}).
-		WithArg(command.Arg{Key: "pi", Type: option.TypeNumber}).
-		WithArg(command.Arg{Key: "force", Type: option.TypeBool}).
-		WithArg(command.Arg{Key: "optional", Optional: true, Type: option.TypeBool}).
-		WithOption(option.New("force", "Force").WithChar('f').WithType(option.TypeBool)).
-		WithOption(option.New("quiet", "Quiet").WithChar('q').WithType(option.TypeBool)).
-		WithOption(option.New("default", "Default"))
+	add := cli.NewCommand("add", "add a remote").
+		WithArg(cli.NewArg("remote")).
+		WithArg(cli.NewArg("count").WithType(cli.TypeInt)).
+		WithArg(cli.NewArg("pi").WithType(cli.TypeNumber)).
+		WithArg(cli.NewArg("force").WithType(cli.TypeBool)).
+		WithArg(cli.NewArg("optional").WithType(cli.TypeBool).AsOptional()).
+		WithOption(cli.NewOption("force", "Force").WithChar('f').WithType(cli.TypeBool)).
+		WithOption(cli.NewOption("quiet", "Quiet").WithChar('q').WithType(cli.TypeBool)).
+		WithOption(cli.NewOption("default", "Default"))
 
-	rmt := command.New("remote", "operations with remotes").WithCommand(add)
+	rmt := cli.NewCommand("remote", "operations with remotes").WithCommand(add)
 
 	return cli.New("git tool").
-		WithArg(command.Arg{Key: "arg1"}).
+		WithArg(cli.NewArg("arg1")).
 		WithCommand(co).
 		WithCommand(rmt)
 }
