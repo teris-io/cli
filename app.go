@@ -50,8 +50,10 @@ func New(descr string) App {
 	return &app{descr: descr}
 }
 
+// ValueType defines the type of permitted argument and option values.
 type ValueType int
 
+// ValueType constants for string, boolean, int and number options and arguments.
 const (
 	TypeString ValueType = iota
 	TypeBool
