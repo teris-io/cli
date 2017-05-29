@@ -10,7 +10,7 @@ import (
 func setup_parse_app() cli.App {
 	co := cli.NewCommand("checkout", "checkout a branch or revision").
 		WithShortcut("co").
-		WithArg(cli.NewArg("branch")).
+		WithArg(cli.NewArg("branch", "branch to checkout")).
 		WithOption(cli.NewOption("branch", "Create branch").WithChar('b').WithType(cli.TypeBool)).
 		WithOption(cli.NewOption("upstream", "Set upstream").WithChar('u').WithType(cli.TypeBool)).
 		WithOption(cli.NewOption("fallback", "Set upstream").WithChar('f')).
@@ -19,11 +19,11 @@ func setup_parse_app() cli.App {
 		WithOption(cli.NewOption("str", "Count").WithChar('s'))
 
 	add := cli.NewCommand("add", "add a remote").
-		WithArg(cli.NewArg("remote")).
-		WithArg(cli.NewArg("count").WithType(cli.TypeInt)).
-		WithArg(cli.NewArg("pi").WithType(cli.TypeNumber)).
-		WithArg(cli.NewArg("force").WithType(cli.TypeBool)).
-		WithArg(cli.NewArg("optional").WithType(cli.TypeBool).AsOptional()).
+		WithArg(cli.NewArg("remote", "remote to add")).
+		WithArg(cli.NewArg("count", "whatever").WithType(cli.TypeInt)).
+		WithArg(cli.NewArg("pi", "whatever").WithType(cli.TypeNumber)).
+		WithArg(cli.NewArg("force", "whatever").WithType(cli.TypeBool)).
+		WithArg(cli.NewArg("optional", "whatever").WithType(cli.TypeBool).AsOptional()).
 		WithOption(cli.NewOption("force", "Force").WithChar('f').WithType(cli.TypeBool)).
 		WithOption(cli.NewOption("quiet", "Quiet").WithChar('q').WithType(cli.TypeBool)).
 		WithOption(cli.NewOption("default", "Default"))
@@ -31,7 +31,7 @@ func setup_parse_app() cli.App {
 	rmt := cli.NewCommand("remote", "operations with remotes").WithCommand(add)
 
 	return cli.New("git tool").
-		WithArg(cli.NewArg("arg1")).
+		WithArg(cli.NewArg("arg1", "whatever")).
 		WithCommand(co).
 		WithCommand(rmt)
 }
