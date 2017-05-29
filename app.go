@@ -188,6 +188,9 @@ func (a *app) Run(appargs []string, w io.Writer) int {
 		}
 		if action != nil {
 			code = action(args, opts)
+		} else {
+			a.Usage(invocation, w)
+			code = 1
 		}
 	}
 	return code
