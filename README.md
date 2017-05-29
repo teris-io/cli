@@ -46,7 +46,7 @@ produce (the exit code will be 1 in the former case, because the action is missi
 help explicitly requested):
 
 ```
-git [--verbose]
+gitc [--verbose]
 
 Description:
     git tool
