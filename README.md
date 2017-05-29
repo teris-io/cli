@@ -11,7 +11,7 @@ The core of the module is the command, option and argument parsing logic. After 
 command action is evaluated passing a slice of (validated) positional arguments and a map of (validated) options.
 No more no less.
 
-## Defining
+## Definition
 
 ```
 co := cli.NewCommand("checkout", "checkout a branch or revision").
@@ -38,6 +38,8 @@ app := cli.New("git tool").
 
 os.Exit(app.Run(os.Args, os.Stdout))
 ```
+
+## Execution
 
 Given the above definition is for a git client, e.g. `gitc`, running `gitc` with no arguments or with `-h` will
 produce (the exit code will be 1 in the former case, because the action is missing, and 0 in the latter, because
