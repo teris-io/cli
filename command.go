@@ -1,3 +1,6 @@
+// Copyright (c) 2017. Oleg Sklyar & teris.io. All rights reserved.
+// See the LICENSE file in the project root for licensing information.
+
 package cli
 
 // Command defines a named sub-command in a command-tree of an application. A complete path to the terminal

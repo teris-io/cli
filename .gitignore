@@ -1,5 +1,3 @@
 .idea/
-*.iml
 vendor/
-
-*.lock
+Gopkg.lock

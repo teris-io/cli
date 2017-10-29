@@ -1,8 +1,16 @@
+// Copyright (c) 2017. Oleg Sklyar & teris.io. All rights reserved.
+// See the LICENSE file in the project root for licensing information.
+
 // Package cli provides a simple, fast and complete API for building command line applications in Go.
 // In contrast to other libraries additional emphasis is put on the definition and validation of
 // positional arguments and consistent usage outputs combining options from all command levels into
 // one block.
 package cli
+
+import (
+	"fmt"
+	"io"
+)
 
 // Action defines a function type to be executed for an application or a
 // command. It takes a slice of validated positional arguments and a map
@@ -43,6 +51,10 @@ type App interface {
 	// the invocation path is normally also computed and returned (the content of arguments and options is not
 	// guaranteed).
 	Parse(appargs []string) (invocation []string, args []string, opts map[string]string, err error)
+	// Run parses the argument list and runs the command specified with the corresponding options and arguments.
+	Run(appargs []string, w io.Writer) int
+	// Usage prints out the full usage help.
+	Usage(invocation []string, w io.Writer) error
 }
 
 // New creates a new CLI App.
@@ -70,6 +82,8 @@ const (
 type Arg interface {
 	// Key defines how the argument will be shown in the usage string.
 	Key() string
+	// Description returns the description of the argument usage
+	Description() string
 	// Type defines argument type. Default is string, which is not validated,
 	// other types are validated by simple string parsing into boolean, int and float.
 	Type() ValueType
@@ -85,8 +99,8 @@ type Arg interface {
 }
 
 // NewArg creates a new positional argument.
-func NewArg(key string) Arg {
-	return arg{key: key}
+func NewArg(key, descr string) Arg {
+	return arg{key: key, descr: descr}
 }
 
 type app struct {
@@ -140,14 +154,68 @@ func (a *app) Parse(appargs []string) (invocation []string, args []string, opts 
 	return Parse(a, appargs)
 }
 
+func (a *app) Run(appargs []string, w io.Writer) int {
+	invocation, args, opts, err := a.Parse(appargs)
+	_, help := opts["help"]
+	code := 1
+	if err == nil && help {
+		a.Usage(invocation, w)
+		code = 0
+	} else if err != nil {
+		fmt.Fprintf(w, "fatal: %v\n", err)
+		fmt.Fprintf(w, "usage: %v\n", shortUsage(a, invocation))
+	} else {
+		action := a.Action()
+		if len(invocation) > 1 {
+			cmds := a.Commands()
+			for i, key := range invocation[1:] {
+				matched := false
+				for _, cmd := range cmds {
+					if cmd.Key() == key {
+						cmds = cmd.Commands()
+						matched = true
+						if i == len(invocation)-2 {
+							action = cmd.Action()
+						}
+						break
+					}
+				}
+				// should never happen if invocation originates from the parser
+				if !matched {
+					fmt.Fprintf(w, "fatal: invalid invocation path %v\n", invocation)
+					fmt.Fprintf(w, "usage: %v\n", shortUsage(a, invocation[:1]))
+					action = nil
+					break
+				}
+			}
+		}
+		if action != nil {
+			code = action(args, opts)
+		} else {
+			a.Usage(invocation, w)
+			code = 1
+		}
+	}
+	return code
+}
+
+func (a *app) Usage(invocation []string, w io.Writer) error {
+	return Usage(a, invocation, w)
+}
+
 type arg struct {
 	key      string
+	descr    string
 	at       ValueType
 	optional bool
 }
 
 func (a arg) Key() string {
 	return a.key
+}
+
+func (a arg) Description() string {
+	return a.descr
 }
 
 func (a arg) Type() ValueType {
