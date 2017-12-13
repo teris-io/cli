@@ -28,6 +28,7 @@ func setuParseApp() cli.App {
 		WithArg(cli.NewArg("pi", "whatever").WithType(cli.TypeNumber)).
 		WithArg(cli.NewArg("force", "whatever").WithType(cli.TypeBool)).
 		WithArg(cli.NewArg("optional", "whatever").WithType(cli.TypeBool).AsOptional()).
+		WithArg(cli.NewArg("passthrough", "passthrough").AsOptional()).
 		WithOption(cli.NewOption("force", "Force").WithChar('f').WithType(cli.TypeBool)).
 		WithOption(cli.NewOption("quiet", "Quiet").WithChar('q').WithType(cli.TypeBool)).
 		WithOption(cli.NewOption("default", "Default"))
@@ -123,6 +124,11 @@ func TestApp_Parse_OptionalPresent_Ok(t *testing.T) {
 func TestApp_Parse_KeysAnywhereBetweenArgs_Ok(t *testing.T) {
 	invocation, args, opts, err := cli.Parse(setuParseApp(), []string{"git", "remote", "add", "-f", "origin", "--default=foo", "1", "3.14", "true", "-q"})
 	assertAppParseOk(t, "[git remote add] [origin 1 3.14 true] map[default:foo force:true quiet:true]", invocation, args, opts, err)
+}
+
+func TestApp_Parse_AfterDashDash_TakesAsIs_Ok(t *testing.T) {
+	invocation, args, opts, err := cli.Parse(setuParseApp(), []string{"git", "remote", "add", "origin", "1", "3.14", "true", "false", "--", "-j", "24", "doit"})
+	assertAppParseOk(t, "[git remote add] [origin 1 3.14 true false -j 24 doit] map[]", invocation, args, opts, err)
 }
 
 func TestApp_Parse_ExplicitValueForBoolOption_Error(t *testing.T) {

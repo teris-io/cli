@@ -70,15 +70,21 @@ func evalCommand(a App, appargs []string) (invocation []string, argsAndOpts []st
 func splitArgsAndOpts(appargs []string, accptOpts []Option) (args []string, opts map[string]string, err error) {
 	opts = make(map[string]string)
 
+	passthrough := false
 	danglingOpt := ""
 	for _, arg := range appargs {
+		if arg == "--" {
+			passthrough = true
+			continue
+		}
+
 		if danglingOpt != "" {
 			opts[danglingOpt] = arg
 			danglingOpt = ""
 			continue
 		}
 
-		if strings.HasPrefix(arg, "--") {
+		if !passthrough && strings.HasPrefix(arg, "--") {
 			arg = arg[2:]
 			if arg == helpKey {
 				return nil, map[string]string{helpKey: trueStr}, nil
@@ -109,7 +115,7 @@ func splitArgsAndOpts(appargs []string, accptOpts []Option) (args []string, opts
 			continue
 		}
 
-		if strings.HasPrefix(arg, "-") {
+		if !passthrough && strings.HasPrefix(arg, "-") {
 			arg = arg[1:]
 
 			for i, char := range arg {
