@@ -89,7 +89,7 @@ Options:
     -v, --verbose   Verbose execution
 
 Sub-commands:
-    foo checkout    Check out a branch or revision
+    foo checkout    Check out a branch or revision, shortcut: co
     foo remote      Work with git remotes
 `
 	assertAppUsageOk(t, expected, w.str)

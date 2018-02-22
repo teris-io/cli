@@ -56,7 +56,7 @@ func Usage(a App, invocation []string, w io.Writer) error {
 	fmt.Fprintln(w, "Description:")
 	fmt.Fprintf(w, "%s%s\n", indent, descr)
 
-	lines := []usageline{}
+	var lines []usageline
 	maxkey := 0
 	if len(args) > 0 {
 		for _, arg := range args {
@@ -78,13 +78,14 @@ func Usage(a App, invocation []string, w io.Writer) error {
 
 	if len(opts) > 0 {
 		for _, opt := range opts {
-			optstr := "--" + opt.Key()
+			charstr := "    "
 			if opt.CharKey() != rune(0) {
-				optstr = "-" + string(opt.CharKey()) + ", " + optstr
+				charstr = "-" + string(opt.CharKey()) + ", "
 			}
+
 			line := usageline{
 				section: "Options",
-				key:     optstr,
+				key:     charstr + "--" + opt.Key(),
 				value:   opt.Description(),
 			}
 			lines = append(lines, line)
@@ -96,10 +97,15 @@ func Usage(a App, invocation []string, w io.Writer) error {
 
 	if len(cmds) > 0 {
 		for _, cmd := range cmds {
+			shortstr := ""
+			if cmd.Shortcut() != "" {
+				shortstr = ", shortcut: " + cmd.Shortcut()
+			}
+
 			line := usageline{
 				section: "Sub-commands",
 				key:     thiscmd + " " + cmd.Key(),
-				value:   cmd.Description(),
+				value:   cmd.Description() + shortstr,
 			}
 			lines = append(lines, line)
 			if len(line.key) > maxkey {
