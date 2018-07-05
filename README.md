@@ -13,7 +13,7 @@ No more no less.
 
 ## Definition
 
-```
+```go
 co := cli.NewCommand("checkout", "checkout a branch or revision").
   WithShortcut("co").
   WithArg(cli.NewArg("revision", "branch or revision to checkout")).
