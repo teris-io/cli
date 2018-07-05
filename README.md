@@ -41,9 +41,8 @@ os.Exit(app.Run(os.Args, os.Stdout))
 
 ## Execution
 
-Given the above definition is for a git client, e.g. `gitc`, running `gitc` with no arguments or with `-h` will
-produce (the exit code will be 1 in the former case, because the action is missing, and 0 in the latter, because
-help explicitly requested):
+Given the above definition for a git client, e.g. `gitc`, running `gitc` with no arguments or with `-h` will
+produce the following output (the exit code will be 1 in the former case, because the action is missing, and 0 in the latter, because help was explicitly requested):
 
 ```
 gitc [--verbose]
