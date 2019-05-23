@@ -25,7 +25,7 @@ co := cli.NewCommand("checkout", "checkout a branch or revision").
   })
 
 add := cli.NewCommand("add", "add a remote").
-  WithArg(cli.NewArg("remote", "remote to add")).
+  WithArg(cli.NewArg("remote", "remote to add"))
 
 rmt := cli.NewCommand("remote", "Work with git remotes").
   WithCommand(add)
