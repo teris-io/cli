@@ -6,6 +6,7 @@ package cli
 import (
 	"fmt"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -25,6 +26,9 @@ const (
 // guaranteed). See `App.parse`
 func Parse(a App, appargs []string) (invocation []string, args []string, opts map[string]string, err error) {
 	_, appname := path.Split(appargs[0])
+	// Remove the path and extension of the executable
+	appname = filepath.Base(appname)
+	appname = strings.TrimSuffix(appname, filepath.Ext(appname))
 
 	invocation, argsAndOpts, expArgs, accptOpts := evalCommand(a, appargs[1:])
 	invocation = append([]string{appname}, invocation...)
